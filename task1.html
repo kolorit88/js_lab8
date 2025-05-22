@@ -1,10 +1,316 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>$Title$</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Факты о животных</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      text-align: center;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      background-color: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    .welcome-message {
+      font-size: 1.2em;
+      margin-bottom: 20px;
+    }
+    .username {
+      font-weight: bold;
+      color: #e74c3c;
+      font-style: italic;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .animal-options {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+    .animal-option {
+      margin: 10px;
+      padding: 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      width: 120px;
+    }
+    .animal-option:hover {
+      border-color: #3498db;
+      transform: scale(1.05);
+    }
+    .animal-option.selected {
+      border-color: #2ecc71;
+      background-color: #e8f8f0;
+    }
+    .animal-image {
+      max-width: 100%;
+      height: auto;
+      max-height: 400px;
+      border-radius: 8px;
+      margin: 20px 0;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .fact-container {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      text-align: left;
+    }
+    .hidden {
+      display: none;
+    }
+    .loading {
+      font-style: italic;
+      color: #7f8c8d;
+    }
+    .language-toggle {
+      margin: 20px 0;
+    }
+  </style>
 </head>
 <body>
-$END$
+<div class="container">
+  <div id="welcome-step">
+    <h1>Добро пожаловать, странник!</h1>
+    <div class="welcome-message">
+      Я буду звать тебя <span id="username" class="username">...</span>, ок?
+    </div>
+    <div>
+      <button id="accept-name">Да, отлично!</button>
+      <button id="change-name">Нет, давай другое</button>
+    </div>
+    <div id="name-loading" class="loading hidden">Генерируем новое имя...</div>
+  </div>
+
+  <div id="animal-step" class="hidden">
+    <h1>На чьей ты стороне?</h1>
+    <div class="animal-options">
+      <div class="animal-option" data-animal="cat">
+        <div>🐱</div>
+        <div>Кошки</div>
+      </div>
+      <div class="animal-option" data-animal="dog">
+        <div>🐶</div>
+        <div>Собаки</div>
+      </div>
+      <div class="animal-option" data-animal="fox">
+        <div>🦊</div>
+        <div>Лисы</div>
+      </div>
+    </div>
+    <button id="select-animal" disabled>Показать факт</button>
+  </div>
+
+
+  <div id="fact-step" class="hidden">
+    <h1 id="animal-title"></h1>
+    <img id="animal-image" class="animal-image" alt="Изображение животного">
+    <div class="fact-container">
+      <h3>Интересный факт:</h3>
+      <p id="animal-fact"></p>
+    </div>
+    <div class="language-toggle">
+      <button id="translate-btn">Перевести на русский</button>
+      <span id="translation-loading" class="loading hidden">Перевожу...</span>
+    </div>
+    <button id="new-fact">Ещё факт</button>
+    <button id="change-animal">Выбрать другое животное</button>
+  </div>
+</div>
+
+<script>
+  const welcomeStep = document.getElementById('welcome-step');
+  const animalStep = document.getElementById('animal-step');
+  const factStep = document.getElementById('fact-step');
+  const usernameElement = document.getElementById('username');
+  const acceptNameBtn = document.getElementById('accept-name');
+  const changeNameBtn = document.getElementById('change-name');
+  const nameLoading = document.getElementById('name-loading');
+  const animalOptions = document.querySelectorAll('.animal-option');
+  const selectAnimalBtn = document.getElementById('select-animal');
+  const animalTitle = document.getElementById('animal-title');
+  const animalImage = document.getElementById('animal-image');
+  const animalFact = document.getElementById('animal-fact');
+  const newFactBtn = document.getElementById('new-fact');
+  const changeAnimalBtn = document.getElementById('change-animal');
+  const translateBtn = document.getElementById('translate-btn');
+  const translationLoading = document.getElementById('translation-loading');
+
+  const animalImages = {
+    cat: 'images/cat.png',
+    dog: 'images/dog.jpg',
+    fox: 'images/fox.jpg'
+  };
+
+  const animalFactsAPI = {
+    cat: 'https://some-random-api.ml/facts/cat',
+    dog: 'https://some-random-api.ml/facts/dog',
+    fox: 'https://some-random-api.ml/facts/fox'
+  };
+
+  let currentUsername = '';
+  let selectedAnimal = '';
+  let currentFact = '';
+  let currentFactRu = '';
+
+  generateRandomName();
+
+  acceptNameBtn.addEventListener('click', () => {
+    welcomeStep.classList.add('hidden');
+    animalStep.classList.remove('hidden');
+  });
+
+  changeNameBtn.addEventListener('click', generateRandomName);
+
+  animalOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      animalOptions.forEach(opt => opt.classList.remove('selected'));
+      option.classList.add('selected');
+      selectedAnimal = option.dataset.animal;
+      selectAnimalBtn.disabled = false;
+    });
+  });
+
+  selectAnimalBtn.addEventListener('click', () => {
+    animalStep.classList.add('hidden');
+    factStep.classList.remove('hidden');
+    getAnimalFact();
+  });
+
+  newFactBtn.addEventListener('click', getAnimalFact);
+  changeAnimalBtn.addEventListener('click', () => {
+    factStep.classList.add('hidden');
+    animalStep.classList.remove('hidden');
+  });
+
+  translateBtn.addEventListener('click', translateFact);
+
+
+  async function generateRandomName() {
+    nameLoading.classList.remove('hidden');
+    changeNameBtn.disabled = true;
+
+    try {
+
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const apiUrl = 'https://random-data-api.com/api/v2/users';
+
+      const response = await fetch(proxyUrl + apiUrl);
+      const data = await response.json();
+
+
+      currentUsername = `${data.first_name} ${data.last_name}`;
+      usernameElement.textContent = currentUsername;
+    } catch (error) {
+      console.error('Ошибка при получении имени:', error);
+
+      const fallbackNames = ['Toilet Mail', 'Puppy Solar', 'Space Cat', 'Moon Dog', 'Star Fox'];
+      currentUsername = fallbackNames[Math.floor(Math.random() * fallbackNames.length)];
+      usernameElement.textContent = currentUsername;
+    }
+
+    nameLoading.classList.add('hidden');
+    changeNameBtn.disabled = false;
+  }
+
+  async function getAnimalFact() {
+    switch(selectedAnimal) {
+      case 'cat':
+        animalTitle.textContent = 'Факты о кошках';
+        break;
+      case 'dog':
+        animalTitle.textContent = 'Факты о собаках';
+        break;
+      case 'fox':
+        animalTitle.textContent = 'Факты о лисах';
+        break;
+      default:
+        console.error('Неизвестный тип животного:', selectedAnimal);
+        animalFact.textContent = 'Ошибка: неизвестный тип животного';
+        return;
+    }
+
+    animalImage.src = animalImages[selectedAnimal];
+    animalImage.alt = selectedAnimal === 'cat' ? 'Кошка' : selectedAnimal === 'dog' ? 'Собака' : 'Лиса';
+
+    try {
+      const response = await fetch(animalFactsAPI[selectedAnimal]);
+      if (!response.ok) throw new Error('Ошибка получения факта');
+      const data = await response.json();
+      currentFact = data.fact || 'Не удалось загрузить факт';
+      animalFact.textContent = currentFact;
+      currentFactRu = '';
+
+      if (translateBtn) {
+        translateBtn.disabled = false;
+        translateBtn.textContent = 'Перевести на русский';
+      }
+    } catch (error) {
+      console.error('Ошибка при получении факта:', error);
+      animalFact.textContent = 'Не удалось загрузить факт. Попробуйте ещё раз.';
+      if (translateBtn) translateBtn.disabled = true;
+    }
+  }
+
+  async function translateFact() {
+    if (!currentFact) return;
+    if (currentFactRu) {
+      animalFact.textContent = currentFactRu;
+      return;
+    }
+
+    translateBtn.disabled = true;
+    translationLoading.classList.remove('hidden');
+
+    try {
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(currentFact)}&langpair=en|ru`;
+
+      const response = await fetch(proxyUrl + apiUrl);
+      const data = await response.json();
+
+      if (data.responseData && data.responseData.translatedText) {
+        currentFactRu = data.responseData.translatedText;
+        animalFact.textContent = currentFactRu;
+      } else {
+        throw new Error('Перевод не получен');
+      }
+    } catch (error) {
+      console.error('Ошибка при переводе:', error);
+      animalFact.textContent = currentFact + '\n\n(Не удалось перевести)';
+    }
+
+    translationLoading.classList.add('hidden');
+    translateBtn.disabled = false;
+  }
+</script>
 </body>
 </html>

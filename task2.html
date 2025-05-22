@@ -1,10 +1,247 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>$Title$</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Requests Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .result {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    h2 {
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      margin: 10px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+  </style>
 </head>
 <body>
-$END$
+<h1>Демонстрация работы с API (через CORS Anywhere)</h1>
+
+<div id="results"></div>
+
+<button id="runXhr">Запустить XHR запросы</button>
+<button id="runCallback">Запустить с коллбэком</button>
+<button id="runPromise">Запустить с промисами</button>
+<button id="runAsync">Запустить с async/await</button>
+
+<script>
+  const resultsDiv = document.getElementById('results');
+  const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
+
+  function getProxyUrl(url) {
+    return PROXY_URL + url;
+  }
+
+  // 1. Исходные XHR запросы
+  function runXhrRequests() {
+    resultsDiv.innerHTML = '<h2>Обычные XHR запросы</h2>';
+
+    // API 1: Random User
+    const xhr1 = new XMLHttpRequest();
+    xhr1.open('GET', getProxyUrl('https://randomuser.me/api/'));
+    xhr1.onload = function() {
+      const data = JSON.parse(xhr1.responseText);
+      addResult('Random User API', data.results[0].name.first + ' ' + data.results[0].name.last);
+
+      // API 2: Dog CEO (случайное изображение собаки)
+      const xhr2 = new XMLHttpRequest();
+      xhr2.open('GET', getProxyUrl('https://dog.ceo/api/breeds/image/random'));
+      xhr2.onload = function() {
+        const data = JSON.parse(xhr2.responseText);
+        addResult('Dog CEO API', `<img src="${data.message}" height="100">`);
+
+        // API 3: Jokes (случайная шутка)
+        const xhr3 = new XMLHttpRequest();
+        xhr3.open('GET', getProxyUrl('https://official-joke-api.appspot.com/random_joke'));
+        xhr3.onload = function() {
+          const data = JSON.parse(xhr3.responseText);
+          addResult('Jokes API', `${data.setup} - ${data.punchline}`);
+
+          // API 4: IPify (получение IP)
+          const xhr4 = new XMLHttpRequest();
+          xhr4.open('GET', getProxyUrl('https://api.ipify.org?format=json'));
+          xhr4.onload = function() {
+            const data = JSON.parse(xhr4.responseText);
+            addResult('IPify API', `Ваш IP: ${data.ip}`);
+
+            // API 5: Open Library (информация о книге)
+            const xhr5 = new XMLHttpRequest();
+            xhr5.open('GET', getProxyUrl('https://openlibrary.org/api/books?bibkeys=ISBN:0385472579&format=json&jscmd=data'));
+            xhr5.onload = function() {
+              const data = JSON.parse(xhr5.responseText);
+              const book = data['ISBN:0385472579'];
+              addResult('Open Library API', `Книга: ${book.title}, автор: ${book.authors[0].name}`);
+            };
+            xhr5.send();
+          };
+          xhr4.send();
+        };
+        xhr3.send();
+      };
+      xhr2.send();
+    };
+    xhr1.send();
+  }
+
+  // 2. Функция request() с коллбэком
+  function request(url, callback) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', getProxyUrl(url));
+    xhr.onload = function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        callback(null, JSON.parse(xhr.responseText));
+      } else {
+        callback(new Error(`Request failed with status ${xhr.status}`), null);
+      }
+    };
+    xhr.onerror = function() {
+      callback(new Error('Request failed'), null);
+    };
+    xhr.send();
+  }
+
+  function runCallbackRequests() {
+    resultsDiv.innerHTML = '<h2>Запросы с коллбэком</h2>';
+
+    request('https://randomuser.me/api/', function(err, data) {
+      if (err) return console.error(err);
+      addResult('Random User API', data.results[0].name.first + ' ' + data.results[0].name.last);
+
+      request('https://dog.ceo/api/breeds/image/random', function(err, data) {
+        if (err) return console.error(err);
+        addResult('Dog CEO API', `<img src="${data.message}" height="100">`);
+
+        request('https://official-joke-api.appspot.com/random_joke', function(err, data) {
+          if (err) return console.error(err);
+          addResult('Jokes API', `${data.setup} - ${data.punchline}`);
+
+          request('https://api.ipify.org?format=json', function(err, data) {
+            if (err) return console.error(err);
+            addResult('IPify API', `Ваш IP: ${data.ip}`);
+
+            request('https://openlibrary.org/api/books?bibkeys=ISBN:0385472579&format=json&jscmd=data', function(err, data) {
+              if (err) return console.error(err);
+              const book = data['ISBN:0385472579'];
+              addResult('Open Library API', `Книга: ${book.title}, автор: ${book.authors[0].name}`);
+            });
+          });
+        });
+      });
+    });
+  }
+
+  // 3. Функция requestPromise() с промисами
+  function requestPromise(url) {
+    return new Promise(function(resolve, reject) {
+      request(url, function(err, data) {
+        if (err) reject(err);
+        else resolve(data);
+      });
+    });
+  }
+
+  function runPromiseRequests() {
+    resultsDiv.innerHTML = '<h2>Запросы с промисами</h2>';
+
+    requestPromise('https://randomuser.me/api/')
+            .then(data => {
+              addResult('Random User API', data.results[0].name.first + ' ' + data.results[0].name.last);
+              return requestPromise('https://dog.ceo/api/breeds/image/random');
+            })
+            .then(data => {
+              addResult('Dog CEO API', `<img src="${data.message}" height="100">`);
+              return requestPromise('https://official-joke-api.appspot.com/random_joke');
+            })
+            .then(data => {
+              addResult('Jokes API', `${data.setup} - ${data.punchline}`);
+              return requestPromise('https://api.ipify.org?format=json');
+            })
+            .then(data => {
+              addResult('IPify API', `Ваш IP: ${data.ip}`);
+              return requestPromise('https://openlibrary.org/api/books?bibkeys=ISBN:0385472579&format=json&jscmd=data');
+            })
+            .then(data => {
+              const book = data['ISBN:0385472579'];
+              addResult('Open Library API', `Книга: ${book.title}, автор: ${book.authors[0].name}`);
+            })
+            .catch(err => {
+              console.error('Ошибка:', err);
+              addResult('Ошибка', err.message);
+            });
+  }
+
+  // 4. Async/await версия (с прокси)
+  async function runAsyncRequests() {
+    resultsDiv.innerHTML = '<h2>Запросы с async/await</h2>';
+
+    try {
+      // API 1
+      const userData = await requestPromise('https://randomuser.me/api/');
+      addResult('Random User API', userData.results[0].name.first + ' ' + userData.results[0].name.last);
+
+      // API 2
+      const dogData = await requestPromise('https://dog.ceo/api/breeds/image/random');
+      addResult('Dog CEO API', `<img src="${dogData.message}" height="100">`);
+
+      // API 3
+      const jokeData = await requestPromise('https://official-joke-api.appspot.com/random_joke');
+      addResult('Jokes API', `${jokeData.setup} - ${jokeData.punchline}`);
+
+      // API 4
+      const ipData = await requestPromise('https://api.ipify.org?format=json');
+      addResult('IPify API', `Ваш IP: ${ipData.ip}`);
+
+      // API 5
+      const bookData = await requestPromise('https://openlibrary.org/api/books?bibkeys=ISBN:0385472579&format=json&jscmd=data');
+      const book = bookData['ISBN:0385472579'];
+      addResult('Open Library API', `Книга: ${book.title}, автор: ${book.authors[0].name}`);
+    } catch (err) {
+      console.error('Ошибка:', err);
+      addResult('Ошибка', err.message);
+    }
+  }
+
+  function addResult(apiName, content) {
+    const div = document.createElement('div');
+    div.className = 'result';
+    div.innerHTML = `<strong>${apiName}:</strong> ${content}`;
+    resultsDiv.appendChild(div);
+  }
+
+  // Назначение обработчиков кнопок
+  document.getElementById('runXhr').addEventListener('click', runXhrRequests);
+  document.getElementById('runCallback').addEventListener('click', runCallbackRequests);
+  document.getElementById('runPromise').addEventListener('click', runPromiseRequests);
+  document.getElementById('runAsync').addEventListener('click', function() {
+    runAsyncRequests().catch(err => {
+      console.error('Ошибка:', err);
+      addResult('Ошибка', err.message);
+    });
+  });
+</script>
 </body>
 </html>
